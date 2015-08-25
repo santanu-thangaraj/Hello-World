@@ -1,2 +1,2 @@
 modification online
-checking Merge Tools has
+checking merge tool
