@@ -1,0 +1,18 @@
+﻿Build started 8/24/2015 2:13:15 PM.
+     1>Project "C:\Users\sthangar\AMD APP SDK\3.0\samples\opencl\cl\1.x\MatrixMultiplication\MatrixMultiplicationVS13.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /I../../../../../include /I../../../../../include/SDKUtil /I"C:\Program Files (x86)\AMD APP SDK\3.0\/include" /nologo /W3 /WX- /O2 /Ob2 /D WIN32 /D _WINDOWS /D NDEBUG /D _CRT_SECURE_NO_WARNINGS /D "CMAKE_INTDIR=\"Release\"" /D _MBCS /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /GR /Fo"temp\x86_64\Release\\" /Fd"C:\Users\sthangar\AMD APP SDK\3.0\samples\opencl\bin/x86_64/Release/MatrixMultiplication.pdb" /Gd /TP /wd4005 /wd4996 /errorReport:prompt MatrixMultiplication.cpp
+         MatrixMultiplication.cpp
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\sthangar\AMD APP SDK\3.0\samples\opencl\bin\x86_64\Release\MatrixMultiplication.exe" /INCREMENTAL:NO /NOLOGO /LIBPATH:..\..\..\..\..\lib\win64\ /LIBPATH:"C:\Program Files (x86)\AMD APP SDK\3.0\\lib\x86_64\\" kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib OpenCL.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"C:\Users\sthangar\AMD APP SDK\3.0\samples\opencl\bin\x86_64\Release\MatrixMultiplication.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\sthangar\AMD APP SDK\3.0\samples\opencl\bin/x86_64/Release/MatrixMultiplication.lib" /MACHINE:X64 /SAFESEH:NO  /machine:x64 temp\x86_64\Release\MatrixMultiplication.obj
+         MatrixMultiplicationVS13.vcxproj -> C:\Users\sthangar\AMD APP SDK\3.0\samples\opencl\bin\x86_64\Release\MatrixMultiplication.exe
+       PostBuildEvent:
+         copy MatrixMultiplication_Kernels.cl "C:\Users\sthangar\AMD APP SDK\3.0\samples\opencl\bin\x86_64\Release\MatrixMultiplication_Kernels.cl" /Y
+         	  
+         :VCEnd
+                 1 file(s) copied.
+     1>Done Building Project "C:\Users\sthangar\AMD APP SDK\3.0\samples\opencl\cl\1.x\MatrixMultiplication\MatrixMultiplicationVS13.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:04.83

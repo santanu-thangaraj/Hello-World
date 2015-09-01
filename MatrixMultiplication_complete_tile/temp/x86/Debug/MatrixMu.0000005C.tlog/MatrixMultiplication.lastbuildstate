@@ -1,0 +1,2 @@
+#TargetFrameworkVersion=v4.0:PlatformToolSet=v140:EnableManagedIncrementalBuild=false:VCToolArchitecture=Native32Bit
+Debug|Win32|C:\Users\sthangar\AMD APP SDK\3.0\samples\opencl\cl\1.x\MatrixMultiplication_complete_tile\|
