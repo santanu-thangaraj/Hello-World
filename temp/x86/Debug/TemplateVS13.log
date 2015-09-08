@@ -1,0 +1,22 @@
+﻿Build started 9/8/2015 2:49:57 PM.
+     1>Project "C:\Users\sthangar\Desktop\workspace\Template\TemplateVS13.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\CL.exe /c /I../../../../../include /I../../../../../include/SDKUtil /I"C:\Program Files (x86)\AMD APP SDK\3.0\/include" /Zi /nologo /W3 /WX- /Od /Ob0 /Oy- /D WIN32 /D _WINDOWS /D _DEBUG /D _CRT_SECURE_NO_WARNINGS /D "CMAKE_INTDIR=\"Debug\"" /D _MBCS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /GR /Fo"temp\x86\Debug\\" /Fd"C:\Users\sthangar\Desktop\workspace\Template\bin/x86/Debug/Template.pdb" /Gd /TP /wd4005 /wd4996 /analyze- /errorReport:prompt Template.cpp
+         Template.cpp
+     1>Template.cpp(37): warning C4244: '=': conversion from 'int' to 'float', possible loss of data
+         Template.cpp(27): note: while compiling class template member function 'MergeSortData<float>::MergeSortData(int)'
+         Template.cpp(330): note: see reference to function template instantiation 'MergeSortData<float>::MergeSortData(int)' being compiled
+         Template.cpp(330): note: see reference to class template instantiation 'MergeSortData<float>' being compiled
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\sthangar\Desktop\workspace\Template\bin\x86\Debug\Template.exe" /INCREMENTAL /NOLOGO /LIBPATH:..\..\..\..\..\lib\win32\ /LIBPATH:"C:\Program Files (x86)\AMD APP SDK\3.0\\lib\x86\\" kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib OpenCL.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /Debug /PDB:"C:\Users\sthangar\Desktop\workspace\Template\bin\x86\Debug\Template.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\sthangar\Desktop\workspace\Template\bin/x86/Debug/Template.lib" /MACHINE:X86 /SAFESEH:NO  /machine:X86 /debug temp\x86\Debug\Template.obj
+         TemplateVS13.vcxproj -> C:\Users\sthangar\Desktop\workspace\Template\bin\x86\Debug\Template.exe
+       PostBuildEvent:
+         copy Template_Kernels.cl "C:\Users\sthangar\Desktop\workspace\Template\bin\x86\Debug\Template_Kernels.cl" /Y
+         	  
+         :VCEnd
+                 1 file(s) copied.
+     1>Done Building Project "C:\Users\sthangar\Desktop\workspace\Template\TemplateVS13.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:01.52
