@@ -8,40 +8,33 @@
 
 #define ENABLE_DEBUG_PRINT
 
+#define NON_BLOCKING_READ_WRITE 0
+#define BLOCKING_READ_WRITE 1
+#define KERNEL_LEAF_WG_SZ 256
+
 cl_context          context;
 cl_kernel			kernel_leaf;              // compute kernel_leaf
 cl_kernel		    kernel_merge;             // compute kernel_merge
+cl_command_queue	commands;				  // compute command queue
 
 template <class T>
 class MergeSortData {
 public:
-	T* elems;     // elements 
+	T* elems;     // elements
+	T* elems_op_cpu;
+	T* elems_op_gpu;
 	int length;
 	cl_mem cl_array1, cl_array2;
+	cl_event kernel_event;
 
 	MergeSortData(int);
 	void Merge(T[], int , int, int);  
 	void MergeSort(T[], int, int);
 	void Get_GPU_op(void);
+	void Verify_GPU_op(void);
 };
 
-template <class T>
-MergeSortData<T>::Get_GPU_op()
-{
-	//set kernel arguments to the kernel
 
-	// the input array to the kernel
-	status = clSetKernelArg(
-		kernel,
-		1,
-		sizeof(cl_mem),
-		(void *)&inputBuffer);
-	if (status != CL_SUCCESS)
-	{
-		std::cout << "Error: Setting kernel argument. (input)\n";
-		return SDK_FAILURE;
-	}
-}
 
 template <class T>
 MergeSortData<T>::MergeSortData(int len)
@@ -50,6 +43,7 @@ MergeSortData<T>::MergeSortData(int len)
 	/*constructor for initializing the input array*/
 	length = len;
 	elems = new T[length];
+	elems_op_gpu = new T[length];
 #ifdef	ENABLE_DEBUG_PRINT
 	std::cout << "The input array is:\n";
 #endif	
@@ -86,6 +80,254 @@ MergeSortData<T>::MergeSortData(int len)
 	}
 };
 
+
+template <class T>
+void MergeSortData<T>::Get_GPU_op(void)
+{
+	cl_int status, final_wg_size, num_wg, num_threads_needed_to_process;
+	int enable_print = 0;
+	size_t global_work_offset[3] = { 0 };
+	size_t global_work_size[3] = { 0 };
+	size_t local_work_size[3] = { 0 };
+
+	cl_mem gpu_mem_inp;
+	cl_mem gpu_mem_op;
+	cl_mem gpu_mem_tmp;
+
+	int merge_array_size;
+	//copy cpu memory to GPU memory
+	status = clEnqueueWriteBuffer(commands,
+		cl_array1,
+		BLOCKING_READ_WRITE,
+		0,
+		sizeof(T) * length,
+		elems,
+		0,
+		NULL,
+		NULL);
+	if (status != CL_SUCCESS)
+	{
+		std::cout << "ERROR in cl_enqueue write";
+	}
+
+	//1 : Trigger the leaf level kernel
+
+	//1.1 set input kernel arguments
+	//input array
+	status = clSetKernelArg(
+		kernel_leaf,
+		0,
+		sizeof(cl_mem),
+		(void *)&cl_array1);
+	if (status != CL_SUCCESS)
+	{
+		std::cout << "Error: Setting kernel argument. (input)\n";
+	}
+
+	//final block size calculation
+	final_wg_size = ((length % KERNEL_LEAF_WG_SZ) == 0)? KERNEL_LEAF_WG_SZ : (length % KERNEL_LEAF_WG_SZ);
+
+	status = clSetKernelArg(
+		kernel_leaf,
+		1,
+		sizeof(cl_int),
+		(void *)&final_wg_size);
+	if (status != CL_SUCCESS)
+	{
+		std::cout << "Error: Setting kernel argument. (input)\n";
+	}
+
+
+	local_work_size[0] = KERNEL_LEAF_WG_SZ;
+
+	num_wg = length / KERNEL_LEAF_WG_SZ;
+	if (final_wg_size != KERNEL_LEAF_WG_SZ) num_wg++;
+
+	global_work_size[0] = num_wg * KERNEL_LEAF_WG_SZ;
+	//1.2 fire the leaf level kernel
+	status = clEnqueueNDRangeKernel(commands,
+		kernel_leaf,
+		1,
+		global_work_offset,
+		global_work_size,
+		local_work_size,
+		0,
+		NULL,
+		&kernel_event);
+
+	clWaitForEvents(1, &kernel_event);
+
+	if (status != CL_SUCCESS)
+	{
+		std::cout << "Error: kernel launch\n";
+	}
+
+	if (length <= KERNEL_LEAF_WG_SZ) return;
+
+	/*stored in swapped order since swapping happens during start of while loop below*/
+	gpu_mem_inp = cl_array2;
+	gpu_mem_op = cl_array1;
+
+	merge_array_size = KERNEL_LEAF_WG_SZ;
+	while ((2 * merge_array_size) <= length)
+	{
+
+		gpu_mem_tmp = gpu_mem_inp;
+		gpu_mem_inp = gpu_mem_op;
+		gpu_mem_op = gpu_mem_tmp;
+
+		status = clSetKernelArg(
+			kernel_merge,
+			0,
+			sizeof(cl_mem),
+			(void *)&gpu_mem_inp);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: Setting kernel argument. (input)\n";
+		}
+
+		status = clSetKernelArg(
+			kernel_merge,
+			1,
+			sizeof(cl_mem),
+			(void *)&gpu_mem_op);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: Setting kernel argument. (output)\n";
+		}
+
+		status = clSetKernelArg(
+			kernel_merge,
+			2,
+			sizeof(cl_int),
+			(void *)&merge_array_size);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: Setting kernel argument\n";
+		}
+
+		status = clSetKernelArg(
+			kernel_merge,
+			3,
+			sizeof(cl_int),
+			(void *)&merge_array_size);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: Setting kernel argument\n";
+		}
+
+		merge_array_size <<= 1;
+		num_threads_needed_to_process = length / merge_array_size;
+
+		status = clSetKernelArg(
+			kernel_merge,
+			4,
+			sizeof(cl_int),
+			(void *)&num_threads_needed_to_process);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: Setting kernel argument\n";
+		}
+
+		if (merge_array_size == 512)
+		{
+			enable_print = 1;
+		}
+		else
+		{
+			enable_print = 0;
+		}
+		status = clSetKernelArg(
+			kernel_merge,
+			5,
+			sizeof(cl_int),
+			(void *)&enable_print);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: Setting kernel argument\n";
+		}
+
+		local_work_size[0] = 16;
+		global_work_size[0] = (num_threads_needed_to_process / 16) * 16;
+		if (global_work_size[0] < num_threads_needed_to_process) global_work_size[0] += 16;
+
+
+		status = clEnqueueNDRangeKernel(commands,
+			kernel_merge,
+			1,
+			global_work_offset,
+			global_work_size,
+			local_work_size,
+			0,
+			NULL,
+			&kernel_event);
+
+		clWaitForEvents(1, &kernel_event);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: kernel launch\n";
+		}
+
+	}
+
+	//take care of the boundary condition
+	if (merge_array_size < length)
+	{
+
+	}
+
+	cl_array1 = gpu_mem_op;
+};
+
+
+template <class T>
+void MergeSortData<T>::Verify_GPU_op(void)
+{
+	int status, i;
+	// read the output from GPU memory
+	status = clEnqueueReadBuffer(commands,
+		cl_array1,
+		BLOCKING_READ_WRITE,
+		0,
+		sizeof(T) * length,
+		(void *)elems_op_gpu,
+		0,
+		NULL,
+		NULL);
+
+	if (status != CL_SUCCESS)
+	{
+		std::cout << "Error: output copy\n";
+	}
+
+	// perform CPU merge
+	MergeSort(elems,0,(length -1));
+
+
+	for (i = 0; i < length; i++)
+	{
+		if (elems[i] != elems_op_gpu[i])
+		{
+			std::cout << "Mismatched at:" << i <<"\t"<< elems[i] << "\t"<<elems_op_gpu[i] << "\n";
+		}
+	}
+#ifdef	ENABLE_DEBUG_PRINT
+	std::cout << "The CPU output array is:\n";
+	for (i = 0; i < length; i++)
+	{
+		std::cout << elems[i] << "\t";
+	}
+
+	std::cout << "The GPU output array is:\n";
+	for (i = 0; i < length; i++)
+	{
+		std::cout << elems_op_gpu[i] << "\t";
+	}
+
+#endif	
+
+
+};
 template <class T>
 void MergeSortData<T>::Merge(T tempArray[], int start, int mid, int end)
 {
@@ -191,7 +433,6 @@ int main(int argc, char** argv)
 //	size_t local;                       // local domain size for our calculation
 
 	cl_device_id device_id;             // compute device id 
-	cl_command_queue commands;          // compute command queue
 	cl_program program;                 // compute program
 	cl_uint numPlatforms;
 	cl_platform_id platform = NULL;
@@ -203,7 +444,7 @@ int main(int argc, char** argv)
 		//std::cout << "Usage is: executable.exe float/double input_array_size";
 		//return EXIT_FAILURE;
 		is_double = 1;
-		input_size = 24;
+		input_size = 1024;
 	}
 	else
 	{
@@ -319,7 +560,7 @@ int main(int argc, char** argv)
 
 		std::cout << "Error: Failed to build program executable!\n";
 		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
-		std::cout << "%s\n",buffer;
+		std::cout << buffer << "\n" ;
 		return EXIT_FAILURE;
 	}
 
@@ -342,11 +583,14 @@ int main(int argc, char** argv)
 	if (is_double)
 	{
 		MergeSortData<double> merge_class_data(input_size);
-
+		merge_class_data.Get_GPU_op();
+		merge_class_data.Verify_GPU_op();
 	}
 	else
 	{
 		MergeSortData<float> merge_class_data(input_size);
+		merge_class_data.Get_GPU_op();
+		merge_class_data.Verify_GPU_op();
 	}
 
 }
