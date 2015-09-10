@@ -101,7 +101,7 @@ kernel void merge(
 	array1_element = g_array_inp[my_idx_1++];
 	array2_element = g_array_inp[my_idx_2++];
 
-	if ((g_id == 0) && (enable_print == 1))
+	/*if ((g_id == 0) && (enable_print == 1))
 	{
 		for (iter = 0; iter < (1024); iter++)
 		{
@@ -112,7 +112,8 @@ kernel void merge(
 			printf("%f\t", g_array_inp[iter]);
 
 		}
-	}
+	}*/
+	//printf("[%d] %d %d %f %f %d [%d %d]\n",g_id, my_start_idx_1, my_start_idx_2, array1_element, array2_element, op_idx, array_1_len, array_2_len);
 	for (iter = 0; iter < (array_1_len + array_2_len); iter++)
 	{
 		if (array1_element < array2_element)
@@ -125,6 +126,7 @@ kernel void merge(
 			}
 			else
 			{
+				iter++;
 				g_array_op[op_idx++] = array2_element;
 				iter++;
 				for (; iter < (array_1_len + array_2_len); iter++)
@@ -143,6 +145,7 @@ kernel void merge(
 			}
 			else
 			{
+				iter++;
 				g_array_op[op_idx++] = array1_element;
 				iter++;
 				for (; iter < (array_1_len + array_2_len); iter++)
@@ -154,4 +157,5 @@ kernel void merge(
 		}
 
 	}
+	//printf("[%d]op_idx = %d %f\n",g_id, op_idx, g_array_op[512]);
 }

@@ -95,6 +95,10 @@ void MergeSortData<T>::Get_GPU_op(void)
 	cl_mem gpu_mem_tmp;
 
 	int merge_array_size;
+	int array_size;
+	int residual_array_size;
+	int last_array_size;
+
 	//copy cpu memory to GPU memory
 	status = clEnqueueWriteBuffer(commands,
 		cl_array1,
@@ -168,8 +172,20 @@ void MergeSortData<T>::Get_GPU_op(void)
 	gpu_mem_inp = cl_array2;
 	gpu_mem_op = cl_array1;
 
-	merge_array_size = KERNEL_LEAF_WG_SZ;
-	while ((2 * merge_array_size) <= length)
+	array_size = KERNEL_LEAF_WG_SZ;
+	merge_array_size = (array_size << 1);
+
+	num_threads_needed_to_process = length / merge_array_size;
+	residual_array_size = length - (num_threads_needed_to_process * merge_array_size);
+
+	last_array_size = array_size;
+	if (residual_array_size > array_size)
+	{
+		last_array_size = residual_array_size - array_size;
+		num_threads_needed_to_process += 1;
+	}
+
+	while (num_threads_needed_to_process > 0)
 	{
 
 		gpu_mem_tmp = gpu_mem_inp;
@@ -200,7 +216,7 @@ void MergeSortData<T>::Get_GPU_op(void)
 			kernel_merge,
 			2,
 			sizeof(cl_int),
-			(void *)&merge_array_size);
+			(void *)&array_size);
 		if (status != CL_SUCCESS)
 		{
 			std::cout << "Error: Setting kernel argument\n";
@@ -210,14 +226,11 @@ void MergeSortData<T>::Get_GPU_op(void)
 			kernel_merge,
 			3,
 			sizeof(cl_int),
-			(void *)&merge_array_size);
+			(void *)&last_array_size);
 		if (status != CL_SUCCESS)
 		{
 			std::cout << "Error: Setting kernel argument\n";
 		}
-
-		merge_array_size <<= 1;
-		num_threads_needed_to_process = length / merge_array_size;
 
 		status = clSetKernelArg(
 			kernel_merge,
@@ -237,6 +250,9 @@ void MergeSortData<T>::Get_GPU_op(void)
 		{
 			enable_print = 0;
 		}
+
+		
+
 		status = clSetKernelArg(
 			kernel_merge,
 			5,
@@ -268,11 +284,18 @@ void MergeSortData<T>::Get_GPU_op(void)
 			std::cout << "Error: kernel launch\n";
 		}
 
-	}
+		array_size <<= 1;
+		merge_array_size = (array_size << 1);
 
-	//take care of the boundary condition
-	if (merge_array_size < length)
-	{
+		num_threads_needed_to_process = length / merge_array_size;
+		residual_array_size = length - (num_threads_needed_to_process * merge_array_size);
+
+		last_array_size = array_size;
+		if (residual_array_size > array_size)
+		{
+			last_array_size = residual_array_size - array_size;
+			num_threads_needed_to_process += 1;
+		}
 
 	}
 
@@ -444,7 +467,7 @@ int main(int argc, char** argv)
 		//std::cout << "Usage is: executable.exe float/double input_array_size";
 		//return EXIT_FAILURE;
 		is_double = 1;
-		input_size = 1024;
+		input_size = 1023;
 	}
 	else
 	{
