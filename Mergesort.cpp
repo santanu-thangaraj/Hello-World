@@ -548,7 +548,7 @@ int main(int argc, char** argv)
 
 
 	//Building Kernel
-	const char * filename = "Template_Kernels.cl";
+	const char * filename = "Mergesort_Kernels.cl";
 	std::string  sourceStr = convertToString(filename);
 	const char * source = sourceStr.c_str();
 	size_t sourceSize[] = { strlen(source) };
