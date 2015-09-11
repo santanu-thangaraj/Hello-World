@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <time.h>
-#include <string>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 
@@ -471,7 +471,7 @@ int main(int argc, char** argv)
 	}
 	else
 	{
-		if (strcmp("double", "argv[1]") == 0)
+		if (std::strcmp("double", "argv[1]") == 0)
 		{
 			is_double = 1;
 		}
@@ -509,7 +509,7 @@ int main(int argc, char** argv)
 				std::cout << "Error: Getting Platform Info.(clGetPlatformInfo)\n";
 			}
 			platform = platforms[i];
-			if (!strcmp(pbuff, "Advanced Micro Devices, Inc."))
+			if (!std::strcmp(pbuff, "Advanced Micro Devices, Inc."))
 			{
 				break;
 			}
@@ -551,7 +551,7 @@ int main(int argc, char** argv)
 	const char * filename = "Mergesort_Kernels.cl";
 	std::string  sourceStr = convertToString(filename);
 	const char * source = sourceStr.c_str();
-	size_t sourceSize[] = { strlen(source) };
+	size_t sourceSize[] = { std::strlen(source) };
 
 	program = clCreateProgramWithSource(
 		context,
