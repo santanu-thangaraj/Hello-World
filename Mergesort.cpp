@@ -5,7 +5,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-
+#include <sys/time.h>
 #define ENABLE_DEBUG_PRINT
 
 #define NON_BLOCKING_READ_WRITE 0
@@ -17,12 +17,19 @@ cl_kernel			kernel_leaf;              // compute kernel_leaf
 cl_kernel		    kernel_merge;             // compute kernel_merge
 cl_command_queue	commands;				  // compute command queue
 
+struct timeval start, end;
+long long GPU_kernel_time;
+double double_GPU_kernel_time;
+long long CPU_kernel_post_time;
+
 template <class T>
 class MergeSortData {
 public:
 	T* elems;     // elements
 	T* elems_op_cpu;
 	T* elems_op_gpu;
+	T* leftArray;
+	T* rightArray;
 	int length;
 	cl_mem cl_array1, cl_array2;
 	cl_event kernel_event;
@@ -44,14 +51,16 @@ MergeSortData<T>::MergeSortData(int len)
 	length = len;
 	elems = new T[length];
 	elems_op_gpu = new T[length];
+	leftArray = new T[length];
+	rightArray = new T[length];
 #ifdef	ENABLE_DEBUG_PRINT
-	std::cout << "The input array is:\n";
+//	std::cout << "The input array is:\n";
 #endif	
 	for (i = 0; i < length; i++)
 	{
 		elems[i] = rand() % 10000;
 #ifdef	ENABLE_DEBUG_PRINT
-		std::cout << elems[i]<<"\t";
+//		std::cout << elems[i]<<"\t";
 #endif
 	}
 
@@ -149,6 +158,8 @@ void MergeSortData<T>::Get_GPU_op(void)
 
 	global_work_size[0] = num_wg * KERNEL_LEAF_WG_SZ;
 	//1.2 fire the leaf level kernel
+//	gettimeofday(&start, NULL);
+
 	status = clEnqueueNDRangeKernel(commands,
 		kernel_leaf,
 		1,
@@ -160,6 +171,42 @@ void MergeSortData<T>::Get_GPU_op(void)
 		&kernel_event);
 
 	clWaitForEvents(1, &kernel_event);
+
+ 
+	    {
+		// Calculate performance
+		cl_ulong startTime;
+		cl_ulong endTime;
+
+		// Get kernel profiling info
+		status = clGetEventProfilingInfo(kernel_event,
+		                                 CL_PROFILING_COMMAND_START,
+		                                 sizeof(cl_ulong),
+		                                 &startTime,
+		                                 0);
+
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: profiling\n";
+		}
+		status = clGetEventProfilingInfo(kernel_event,
+		                                 CL_PROFILING_COMMAND_END,
+		                                 sizeof(cl_ulong),
+		                                 &endTime,
+		                                 0);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: profiling\n";
+		}
+
+		// Print performance numbers
+		double sec = 1e-9 * (endTime - startTime);
+		std::cout <<"\nGPU:" << sec*1000000;
+		double_GPU_kernel_time = sec;
+	    }
+
+ // 	gettimeofday(&end, NULL);
+//	GPU_kernel_time = ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec));
 
 	if (status != CL_SUCCESS)
 	{
@@ -185,7 +232,7 @@ void MergeSortData<T>::Get_GPU_op(void)
 		num_threads_needed_to_process += 1;
 	}
 
-	while (num_threads_needed_to_process > 0)
+	while (num_threads_needed_to_process > 16)
 	{
 
 		gpu_mem_tmp = gpu_mem_inp;
@@ -240,18 +287,7 @@ void MergeSortData<T>::Get_GPU_op(void)
 		if (status != CL_SUCCESS)
 		{
 			std::cout << "Error: Setting kernel argument\n";
-		}
-
-		if (merge_array_size == 512)
-		{
-			enable_print = 1;
-		}
-		else
-		{
-			enable_print = 0;
-		}
-
-		
+		}	
 
 		status = clSetKernelArg(
 			kernel_merge,
@@ -268,6 +304,8 @@ void MergeSortData<T>::Get_GPU_op(void)
 		if (global_work_size[0] < num_threads_needed_to_process) global_work_size[0] += 16;
 
 
+//		gettimeofday(&start, NULL);
+
 		status = clEnqueueNDRangeKernel(commands,
 			kernel_merge,
 			1,
@@ -279,11 +317,64 @@ void MergeSortData<T>::Get_GPU_op(void)
 			&kernel_event);
 
 		clWaitForEvents(1, &kernel_event);
+
+	    {
+		// Calculate performance
+		cl_ulong startTime;
+		cl_ulong endTime;
+
+		// Get kernel profiling info
+		status = clGetEventProfilingInfo(kernel_event,
+		                                 CL_PROFILING_COMMAND_START,
+		                                 sizeof(cl_ulong),
+		                                 &startTime,
+		                                 0);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: profiling\n";
+		}
+
+		status = clGetEventProfilingInfo(kernel_event,
+		                                 CL_PROFILING_COMMAND_END,
+		                                 sizeof(cl_ulong),
+		                                 &endTime,
+		                                 0);
+		if (status != CL_SUCCESS)
+		{
+			std::cout << "Error: profiling\n";
+		}
+
+		// Print performance numbers
+		double sec = 1e-9 * (endTime - startTime);
+		std::cout <<"\nGPU:" << sec*1000000;
+		double_GPU_kernel_time += sec;
+	    }
+
+ // 		gettimeofday(&end, NULL);
+//		GPU_kernel_time += ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec));
+
 		if (status != CL_SUCCESS)
 		{
 			std::cout << "Error: kernel launch\n";
 		}
 
+		if ((length - (num_threads_needed_to_process * merge_array_size)) > 0)
+		{
+			status = clEnqueueCopyBuffer(commands,
+				gpu_mem_inp,
+				gpu_mem_op,
+				(num_threads_needed_to_process * merge_array_size) * sizeof(T),
+				(num_threads_needed_to_process * merge_array_size) * sizeof(T),
+				sizeof(T)* (length - (num_threads_needed_to_process * merge_array_size)),
+				0,
+				NULL,
+				NULL);
+
+			if (status != CL_SUCCESS)
+			{
+				std::cout << "ERROR in cl_enqueue write";
+			}
+		}
 		array_size <<= 1;
 		merge_array_size = (array_size << 1);
 
@@ -300,19 +391,14 @@ void MergeSortData<T>::Get_GPU_op(void)
 	}
 
 	cl_array1 = gpu_mem_op;
-};
 
-
-template <class T>
-void MergeSortData<T>::Verify_GPU_op(void)
-{
-	int status, i;
+	gettimeofday(&start, NULL);
 	// read the output from GPU memory
 	status = clEnqueueReadBuffer(commands,
 		cl_array1,
 		BLOCKING_READ_WRITE,
 		0,
-		sizeof(T) * length,
+		sizeof(T)* length,
 		(void *)elems_op_gpu,
 		0,
 		NULL,
@@ -323,19 +409,69 @@ void MergeSortData<T>::Verify_GPU_op(void)
 		std::cout << "Error: output copy\n";
 	}
 
+	
+	//perform CPU post processing
+	while (num_threads_needed_to_process > 0)
+	{
+		int i, start_x, mid_x, end_x;
+		for (i = 0; i < num_threads_needed_to_process; i++)
+		{
+			start_x = (i * merge_array_size);
+			mid_x = (i * merge_array_size + array_size - 1);
+			end_x = ((i + 1) * merge_array_size - 1);
+			if (i == (num_threads_needed_to_process - 1))
+			{
+				end_x = (i * merge_array_size + array_size + last_array_size - 1);
+			}
+			Merge(elems_op_gpu, start_x, mid_x, end_x);
+		}
+		array_size <<= 1;
+		merge_array_size = (array_size << 1);
+
+		num_threads_needed_to_process = length / merge_array_size;
+		residual_array_size = length - (num_threads_needed_to_process * merge_array_size);
+
+		last_array_size = array_size;
+		if (residual_array_size > array_size)
+		{
+			last_array_size = residual_array_size - array_size;
+			num_threads_needed_to_process += 1;
+		}
+
+	}
+	gettimeofday(&end, NULL);
+
+	CPU_kernel_post_time = ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)); 
+};
+
+
+template <class T>
+void MergeSortData<T>::Verify_GPU_op(void)
+{
+	int status, i;
+
+
+	gettimeofday(&start, NULL);
 	// perform CPU merge
 	MergeSort(elems,0,(length -1));
 
+  	gettimeofday(&end, NULL);
+
+	std::cout <<"\nThe CPU time taken is:" << ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec))<< "\n";
+	double_GPU_kernel_time *= 1000000;
+	std::cout <<"\nThe GPU time taken is:" << double_GPU_kernel_time << "\n";
+	std::cout <<"\nThe CPU kernel post time taken is:" << CPU_kernel_post_time << "\n";
 
 	for (i = 0; i < length; i++)
 	{
 		if (elems[i] != elems_op_gpu[i])
 		{
 			std::cout << "Mismatched at:" << i <<"\t"<< elems[i] << "\t"<<elems_op_gpu[i] << "\n";
+			break;
 		}
 	}
 #ifdef	ENABLE_DEBUG_PRINT
-	std::cout << "The CPU output array is:\n";
+	/*std::cout << "The CPU output array is:\n";
 	for (i = 0; i < length; i++)
 	{
 		std::cout << elems[i] << "\t";
@@ -345,7 +481,7 @@ void MergeSortData<T>::Verify_GPU_op(void)
 	for (i = 0; i < length; i++)
 	{
 		std::cout << elems_op_gpu[i] << "\t";
-	}
+	}*/
 
 #endif	
 
@@ -354,8 +490,7 @@ void MergeSortData<T>::Verify_GPU_op(void)
 template <class T>
 void MergeSortData<T>::Merge(T tempArray[], int start, int mid, int end)
 {
-	T leftArray[5001];
-	T rightArray[5001];
+
 	int n1 = mid - start + 1;
 	int n2 = end - mid;
 	int i, j, k;
@@ -467,7 +602,7 @@ int main(int argc, char** argv)
 		//std::cout << "Usage is: executable.exe float/double input_array_size";
 		//return EXIT_FAILURE;
 		is_double = 1;
-		input_size = 1023;
+		input_size = 16384;
 	}
 	else
 	{
@@ -539,7 +674,7 @@ int main(int argc, char** argv)
 	}
 	// Create a command commands
 	//
-	commands = clCreateCommandQueue(context, device_id, 0, &err);
+	commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
 	if (!commands)
 	{
 		std::cout << "Error: Failed to create a command commands!\n";
